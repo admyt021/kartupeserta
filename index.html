@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cetak Kartu Peserta PSAJ - Pro Version</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIwIiBmaWxsPSIjNGYzNmU4Ii8+PHRleHQgeD0iNTAiIHk9IjcwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QPC90ZXh0Pjwvc3ZnPg==">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- JsBarcode & SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* * PENGATURAN KERTAS & KARTU */
+        :root {
+            --card-width: 9.5cm;
+            --card-height: 6.5cm;
+            --paper-width: 21.5cm;
+            --paper-height: 33cm;
+        }
+
+        .paper-f4 {
+            width: var(--paper-width);
+            min-height: var(--paper-height);
+            background: white;
+            margin: 0 auto;
+            padding: 1cm;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-content: start;
+            gap: 0.5cm;
+            box-sizing: border-box;
+        }
+
+        /* * STRUKTUR KARTU MODERN */
+        .id-card {
+            width: var(--card-width);
+            height: var(--card-height);
+            background: #fff;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            
+            --theme-main: #1e3a8a; --theme-accent: #3b82f6; --theme-text: #0f172a; --theme-label: #64748b; --theme-bg: #ffffff;
+            color: var(--theme-text); background-color: var(--theme-bg);
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+        }
+        .id-card::before, .id-card::after { content: ''; position: absolute; z-index: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+        .card-header-container { padding: 8px 12px; display: flex; align-items: center; gap: 10px; position: relative; z-index: 10; height: 1.75cm; }
+        .card-body-container { padding: 10px 12px 8px 12px; display: flex; gap: 12px; position: relative; z-index: 10; flex: 1; }
+
+        /* Kiri */
+        .left-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-right: 4px; }
+        .data-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .data-item { display: flex; flex-direction: column; }
+        .data-label { font-size: 5.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--theme-label); margin-bottom: 1px; }
+        .data-value { font-size: 8.5pt; font-weight: 700; color: var(--theme-text); line-height: 1.1; }
+        .barcode-area { display: flex; flex-direction: column; align-items: flex-start; margin-top: auto; padding-top: 5px; }
+        .barcode-area svg { margin: 0; padding: 0; }
+        .barcode-text { font-size: 5.5pt; font-weight: 800; letter-spacing: 0.1em; margin-top: 2px; color: var(--theme-label); }
+
+        /* Kanan */
+        .right-content { width: 3.5cm; display: flex; flex-direction: column; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .signature-area { text-align: center; width: 100%; line-height: 1.1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; position: relative; }
+        .signature-date { color: var(--theme-label); font-size: 6.5pt; margin-bottom: 2px; font-weight: 600; }
+        .signature-text { color: var(--theme-text); font-size: 6.5pt; font-weight: 700; }
+        .signature-name { font-size: 7.5pt; font-extrabold; text-decoration: underline; text-underline-offset: 2px; }
+        .signature-space { height: 0.65cm; width: 100%; display: flex; align-items: center; justify-content: center; position: relative; z-index: 5; }
+        .signature-img { max-height: 1.2cm; max-width: 100%; object-fit: contain; position: absolute; z-index: 10; }
+        .stamp-img { position: absolute; left: -16px; top: calc(12px - 0.5cm); width: 1.9cm; height: 1.9cm; object-fit: contain; opacity: 0.85; z-index: 1; pointer-events: none; }
+
+        /* * 10 TEMA GEOMETRIS */
+        .theme-1 { --theme-main: #1e40af; --theme-accent: #3b82f6; --theme-label: #2563eb; } .theme-1::before { background: var(--theme-main); clip-path: polygon(0 0, 100% 0, 100% 70%, 0 100%); width: 100%; height: 1.8cm; top: 0; } .theme-1::after { background: var(--theme-accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 30%); width: 100%; height: 2cm; top: 0; opacity: 0.15; } .theme-1 .header-text-color { color: white; }
+        .theme-2 { --theme-main: #065f46; --theme-accent: #10b981; --theme-label: #059669; } .theme-2::before { background: var(--theme-main); clip-path: polygon(0 0, 85% 0, 100% 100%, 0 100%); width: 100%; height: 1.6cm; top: 0; } .theme-2::after { background: var(--theme-accent); clip-path: polygon(70% 0, 100% 0, 100% 100%, 85% 100%); width: 100%; height: 100%; top: 0; opacity: 0.1; } .theme-2 .header-text-color { color: white; }
+        .theme-3 { --theme-main: #b45309; --theme-accent: #f59e0b; --theme-bg: #fffbeb; --theme-label: #92400e; } .theme-3::before { background: linear-gradient(135deg, var(--theme-main), var(--theme-accent)); width: 100%; height: 1.6cm; top: 0; } .theme-3::after { border: 2px solid var(--theme-accent); width: calc(100% - 10px); height: calc(100% - 10px); top: 5px; left: 5px; border-radius: 6px; pointer-events: none; opacity: 0.4; } .theme-3 .header-text-color { color: white; }
+        .theme-4 { --theme-main: #991b1b; --theme-accent: #ef4444; --theme-label: #b91c1c; } .theme-4::before { background: var(--theme-main); clip-path: polygon(0 0, 100% 0, 100% 1.2cm, 50% 1.8cm, 0 1.2cm); width: 100%; height: 1.8cm; top: 0; } .theme-4::after { background: var(--theme-accent); clip-path: polygon(0 0, 100% 0, 100% 1.4cm, 50% 2cm, 0 1.4cm); width: 100%; height: 2cm; top: 0; z-index: -1; opacity: 0.2; } .theme-4 .header-text-color { color: white; }
+        .theme-5 { --theme-main: #111827; --theme-accent: #4b5563; --theme-label: #4b5563; border: 2px solid #111827; border-radius: 4px; } .theme-5::before { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 10px 10px; width: 100%; height: 100%; } .theme-5::after { background: var(--theme-main); width: 100%; height: 1.6cm; top: 0; } .theme-5 .header-text-color { color: white; } .theme-5 .photo-area { border-radius: 0 !important; border-color: #111827 !important; }
+        .theme-6 { --theme-main: #5b21b6; --theme-accent: #8b5cf6; --theme-bg: #faf5ff; --theme-label: #6d28d9; } .theme-6::before { background: var(--theme-main); border-radius: 0 0 50% 50% / 0 0 40% 40%; width: 120%; height: 2cm; top: -10px; left: -10%; } .theme-6::after { background: var(--theme-accent); border-radius: 50%; width: 4cm; height: 4cm; bottom: -2cm; right: -1cm; opacity: 0.15; } .theme-6 .header-text-color { color: white; }
+        .theme-7 { --theme-main: #c2410c; --theme-accent: #fb923c; --theme-label: #c2410c; } .theme-7::before { background: linear-gradient(90deg, #ea580c, #e11d48); width: 100%; height: 1.6cm; top: 0; } .theme-7::after { background: linear-gradient(90deg, #ea580c, #e11d48); clip-path: polygon(0 80%, 100% 20%, 100% 100%, 0 100%); width: 100%; height: 100%; bottom: 0; opacity: 0.08; } .theme-7 .header-text-color { color: white; }
+        .theme-8 { --theme-main: #020617; --theme-accent: #38bdf8; --theme-bg: #0f172a; --theme-text: #f8fafc; --theme-label: #38bdf8; border-color: #1e293b; } .theme-8::before { background: var(--theme-main); width: 100%; height: 1.6cm; top: 0; border-bottom: 2px solid var(--theme-accent); } .theme-8::after { background: linear-gradient(transparent 50%, rgba(56,189,248,0.08) 50%); background-size: 100% 4px; width: 100%; height: 100%; pointer-events: none; } .theme-8 .header-text-color { color: var(--theme-accent); text-shadow: 0 0 8px rgba(56,189,248,0.5); } .theme-8 .photo-area { background: rgba(0,0,0,0.5) !important; border-color: var(--theme-accent) !important; }
+        .theme-9 { --theme-main: #0f766e; --theme-accent: #2dd4bf; --theme-label: #0f766e; border-left: 8px solid var(--theme-main); border-radius: 6px; } .theme-9::before { background: var(--theme-main); width: 100%; height: 1.6cm; top: 0; } .theme-9::after { background: var(--theme-accent); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); width: 6cm; height: 6cm; right: -3cm; top: 1cm; opacity: 0.1; } .theme-9 .header-text-color { color: white; }
+        .theme-10 { --theme-main: #be185d; --theme-accent: #f472b6; --theme-bg: #fdf2f8; --theme-label: #be185d; border: 2px dashed var(--theme-accent); } .theme-10::before { background: var(--theme-main); border-radius: 0 0 2cm 0; width: 85%; height: 1.6cm; top: 0; left: 0; } .theme-10::after { background: radial-gradient(circle, var(--theme-accent) 25%, transparent 25%); background-size: 15px 15px; width: 3.5cm; height: 100%; right: 0; top: 0; opacity: 0.2; } .theme-10 .header-text-color { color: white; }
+
+        /* * ANIMASI & TAB */
+        .tab-content { display: none !important; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block !important; }
+        #tab-manajemen.active { display: flex !important; }
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; background: #eff6ff; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* * MODAL KUSTOM */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 50; animation: fadeIn 0.2s; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); width: 90%; max-width: 400px; padding: 24px; transform: scale(0.95); transition: all 0.2s; }
+        .modal-overlay.active .modal-box { transform: scale(1); }
+
+        /* * PENGATURAN CETAK */
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; background: white; margin: 0; padding: 0; }
+            .paper-f4 { box-shadow: none; margin: 0; padding: 1cm; }
+            @page { size: 21.5cm 33cm; margin: 0; }
+            body { background: white; }
+            .id-card:nth-child(8n+1) { break-before: page; }
+            .id-card:first-child { break-before: auto; }
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800">
+
+    <!-- SIDEBAR PENGATURAN -->
+    <div class="w-[420px] bg-white shadow-2xl h-full flex flex-col z-20 relative print:hidden shrink-0 border-r border-slate-200">
+        
+        <!-- Header Sidebar -->
+        <div class="p-5 bg-slate-900 text-white shrink-0">
+            <h1 class="text-xl font-extrabold flex items-center gap-2">
+                <svg class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+                Card Maker Pro
+            </h1>
+            <p class="text-slate-400 text-xs mt-1">Sistem Terintegrasi & Penyimpanan Lokal</p>
+        </div>
+
+        <!-- Navigasi Tab -->
+        <div class="flex text-xs font-medium text-slate-500 bg-slate-50 border-b border-slate-200 shrink-0">
+            <button class="tab-btn active flex-1 py-3 text-center hover:bg-slate-100 transition" data-target="tab-pengaturan">Pengaturan</button>
+            <button class="tab-btn flex-1 py-3 text-center hover:bg-slate-100 transition" data-target="tab-media">Media & File</button>
+            <button class="tab-btn flex-1 py-3 text-center hover:bg-slate-100 transition" data-target="tab-manajemen">Data Siswa</button>
+            <button class="tab-btn flex-1 py-3 text-center hover:bg-slate-100 transition" data-target="tab-tema">Desain</button>
+        </div>
+
+        <!-- Konten Tabs -->
+        <div class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+            
+            <!-- TAB 1: PENGATURAN (Kop, Kepsek, Titimangsa, Txt Import) -->
+            <div id="tab-pengaturan" class="tab-content active space-y-4">
+                
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                    <h3 class="text-xs font-bold text-blue-800 mb-2 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Kustomisasi Kop Kartu</h3>
+                    <div class="space-y-2">
+                        <input type="text" id="setKop1" class="w-full p-2 border border-blue-200 rounded text-xs outline-none focus:border-blue-500 font-bold" placeholder="Baris 1 (KARTU PESERTA PSAJ)">
+                        <input type="text" id="setKop2" class="w-full p-2 border border-blue-200 rounded text-xs outline-none focus:border-blue-500" placeholder="Baris 2 (SMP PGRI CISEWU)">
+                        <input type="text" id="setKop3" class="w-full p-2 border border-blue-200 rounded text-xs outline-none focus:border-blue-500" placeholder="Baris 3 (TAHUN PELAJARAN 2025/2026)">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Kepala Sekolah</label>
+                        <input type="text" id="setKepsek" class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-xs focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Tanggal Titimangsa</label>
+                        <input type="text" id="setTanggal" class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-xs focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <hr class="border-dashed border-gray-300">
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Import Data Massal (Paste Text)</label>
+                    <p class="text-[10px] text-gray-500 mb-2">Format: <code class="bg-gray-100 px-1 py-0.5 rounded text-blue-600 font-bold">No. Peserta [Tab] Nama [Tab] TTL [Tab] NISN</code></p>
+                    <textarea id="importText" rows="3" class="w-full p-2.5 border border-gray-300 rounded-lg outline-none text-xs font-mono bg-gray-50 focus:ring-2 focus:ring-emerald-500" placeholder="Paste data dari excel di sini..."></textarea>
+                    <button id="btnImportText" class="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold transition">Proses Import Data</button>
+                </div>
+            </div>
+
+            <!-- TAB 2: MEDIA & FILE -->
+            <div id="tab-media" class="tab-content space-y-5">
+                
+                <!-- Upload Logo -->
+                <div class="border border-slate-200 rounded-lg p-3 bg-white">
+                    <label class="block text-xs font-bold text-gray-700 mb-2">1. Logo Sekolah</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="uploadLogo" accept="image/*" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-200 rounded-md cursor-pointer transition">
+                        <button id="resetLogo" class="hidden shrink-0 bg-red-50 text-red-600 hover:bg-red-100 p-1.5 rounded-md transition" title="Hapus">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Tanda Tangan -->
+                <div class="border border-slate-200 rounded-lg p-3 bg-white">
+                    <label class="block text-xs font-bold text-gray-700 mb-2 flex justify-between">
+                        <span>2. Tanda Tangan Kepsek</span>
+                        <span class="text-[10px] text-gray-400 font-normal">(PNG Transparan)</span>
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="uploadTtd" accept="image/png, image/jpeg" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 border border-gray-200 rounded-md cursor-pointer transition">
+                        <button id="resetTtd" class="hidden shrink-0 bg-red-50 text-red-600 hover:bg-red-100 p-1.5 rounded-md transition" title="Hapus">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Cap Sekolah -->
+                <div class="border border-slate-200 rounded-lg p-3 bg-white">
+                    <label class="block text-xs font-bold text-gray-700 mb-2 flex justify-between">
+                        <span>3. Cap Sekolah</span>
+                        <span class="text-[10px] text-gray-400 font-normal">(PNG Transparan)</span>
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="uploadCap" accept="image/png, image/jpeg" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 border border-gray-200 rounded-md cursor-pointer transition">
+                        <button id="resetCap" class="hidden shrink-0 bg-red-50 text-red-600 hover:bg-red-100 p-1.5 rounded-md transition" title="Hapus">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Excel -->
+                <div class="border border-emerald-200 rounded-lg p-3 bg-emerald-50">
+                    <label class="block text-xs font-bold text-emerald-800 mb-2">4. Import File Excel (.xlsx)</label>
+                    <p class="text-[10px] text-emerald-600 mb-2">Pastikan urutan kolom: No | Nama | TTL | NISN</p>
+                    <div class="relative">
+                        <input type="file" id="uploadExcel" accept=".xlsx, .xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div class="bg-white border border-emerald-300 text-emerald-700 text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition cursor-pointer shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Pilih File Excel
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 3: MANAJEMEN DATA (Daftar Siswa, Tambah, Hapus, Foto) -->
+            <div id="tab-manajemen" class="tab-content flex flex-col h-full">
+                <div class="flex justify-between items-center mb-3 shrink-0">
+                    <h3 class="text-sm font-bold text-gray-800">Daftar Siswa (<span id="countSiswa">0</span>)</h3>
+                    <div class="flex gap-2">
+                        <button id="btnTambahManual" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1.5 rounded flex items-center gap-1 font-bold transition">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Tambah
+                        </button>
+                        <button id="btnHapusSemua" class="bg-red-100 hover:bg-red-200 text-red-600 text-[10px] px-2 py-1.5 rounded flex items-center gap-1 font-bold transition">
+                            Kosongkan
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- List Siswa -->
+                <div id="studentListContainer" class="flex-1 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-2 space-y-2 min-h-[250px] custom-scrollbar">
+                    <!-- Item dirender JS -->
+                </div>
+            </div>
+
+            <!-- TAB 4: TEMA -->
+            <div id="tab-tema" class="tab-content">
+                <label class="block text-xs font-semibold text-gray-700 mb-3">Pilih Tema Desain Geometris</label>
+                <div class="grid grid-cols-2 gap-3" id="themeSelector">
+                    <!-- Themes -->
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-blue-600 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-1">Biru Polygon</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-emerald-600 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-2">Hijau Hexa</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-amber-600 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-3">Emas Elegan</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-red-700 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-4">Merah Chevron</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-gray-800 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-5">Grid Corporate</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-violet-700 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-6">Ungu Radial</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-gradient-to-r from-orange-600 to-rose-600 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-7">Sunset Slant</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-slate-950 hover:scale-105 transition-transform shadow border-cyan-500 flex items-center justify-center text-cyan-400 text-[10px] font-bold" data-theme="theme-8">Cyber Dark</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-teal-600 hover:scale-105 transition-transform shadow flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-9">Tosca Diamond</button>
+                    <button class="theme-btn w-full h-10 rounded-lg border-2 border-transparent bg-pink-500 hover:scale-105 transition-transform shadow border-dashed flex items-center justify-center text-white text-[10px] font-bold" data-theme="theme-10">Pastel Memphis</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Tombol Cetak Tetap di Bawah -->
+        <div class="p-5 border-t border-slate-200 bg-white shrink-0">
+            <button onclick="window.print()" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                Cetak Semua Kartu (F4)
+            </button>
+        </div>
+    </div>
+
+    <!-- AREA PREVIEW (Workspace) -->
+    <div class="flex-1 h-full overflow-y-auto bg-gray-200 p-8 flex justify-center custom-scrollbar">
+        <div id="print-area">
+            <div class="paper-f4" id="cardContainer">
+                <!-- Render Area -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= MODAL KUSTOM ================= -->
+    
+    <!-- Modal Alert / Notifikasi -->
+    <div id="modalAlert" class="modal-overlay">
+        <div class="modal-box flex flex-col items-center text-center">
+            <div id="alertIcon" class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 id="alertTitle" class="text-lg font-bold text-gray-800 mb-2">Info</h3>
+            <p id="alertMessage" class="text-sm text-gray-600 mb-6">Pesan di sini</p>
+            <button onclick="closeModal('modalAlert')" class="w-full bg-slate-900 hover:bg-black text-white font-bold py-2.5 rounded-lg transition">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi -->
+    <div id="modalConfirm" class="modal-overlay">
+        <div class="modal-box flex flex-col items-center text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 id="confirmTitle" class="text-lg font-bold text-gray-800 mb-2">Konfirmasi</h3>
+            <p id="confirmMessage" class="text-sm text-gray-600 mb-6">Apakah Anda yakin?</p>
+            <div class="flex gap-3 w-full">
+                <button onclick="closeModal('modalConfirm')" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2.5 rounded-lg transition">Batal</button>
+                <button id="btnConfirmAction" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg transition">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form Tambah Siswa -->
+    <div id="modalFormSiswa" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Tambah Data Siswa</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">No. Peserta</label>
+                    <input type="text" id="formNo" class="w-full p-2 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" placeholder="01-001-001-8">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="formNama" class="w-full p-2 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" placeholder="Nama Siswa">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Tempat, Tanggal Lahir</label>
+                    <input type="text" id="formTtl" class="w-full p-2 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" placeholder="Garut, 10 Mei 2010">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">NISN</label>
+                    <input type="text" id="formNisn" class="w-full p-2 border border-gray-300 rounded text-sm outline-none focus:border-blue-500" placeholder="0123456789">
+                </div>
+            </div>
+            <div class="flex gap-3 w-full mt-6">
+                <button onclick="closeModal('modalFormSiswa')" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2.5 rounded-lg transition text-sm">Batal</button>
+                <button id="btnSaveSiswa" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition text-sm">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="uploadPhotoInput" accept="image/*" class="hidden">
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        // --- 1. STATE MANAGEMENT ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        let appState = {
+            settings: {
+                kop1: "KARTU PESERTA PSAJ",
+                kop2: "SMP PGRI CISEWU",
+                kop3: "TAHUN PELAJARAN 2025/2026",
+                kepsek: "Ahmad Sudrajat, S.Pd., M.M.",
+                tanggal: "Cisewu, 15 Mei 2026",
+                theme: "theme-1",
+                logoUrl: "",
+                ttdUrl: "",
+                capUrl: ""
+            },
+            students: [] // Array of { id, no, nama, ttl, nisn, photoUrl }
+        };
+
+        const defaultData = [
+            { id: generateId(), no: "01-001-001-8", nama: "Ahmad Fauzi Ramadhan", ttl: "Garut, 12 Mei 2010", nisn: "0101234567", photoUrl: "" },
+            { id: generateId(), no: "01-001-002-7", nama: "Bunga Lestari Pangestu", ttl: "Bandung, 05 Agustus 2010", nisn: "0101234568", photoUrl: "" },
+            { id: generateId(), no: "01-001-003-6", nama: "Candra Wijaya Kusuma", ttl: "Tasikmalaya, 21 Jan 2011", nisn: "0101234569", photoUrl: "" }
+        ];
+
+        // --- 2. LOCAL STORAGE ---
+        function saveState() {
+            localStorage.setItem('psaj_pro_state', JSON.stringify(appState));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('psaj_pro_state');
+            if (saved) {
+                appState = JSON.parse(saved);
+            } else {
+                appState.students = [...defaultData];
+            }
+            updateInputsFromState();
+            renderThemeBtns();
+            renderApp();
+        }
+
+        // --- 3. UI TAB LOGIC ---
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active', 'border-bottom', 'border-blue-500'));
+                contents.forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-target')).classList.add('active');
+            });
+        });
+
+        // --- 4. MODAL SYSTEM ---
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        
+        function showAlert(title, message, isSuccess = true) {
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = message;
+            const iconWrap = document.getElementById('alertIcon');
+            if(isSuccess) {
+                iconWrap.className = "w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4";
+                iconWrap.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+            } else {
+                iconWrap.className = "w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4";
+                iconWrap.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            }
+            openModal('modalAlert');
+        }
+
+        function showConfirm(title, message, callback) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            const btn = document.getElementById('btnConfirmAction');
+            btn.onclick = () => {
+                closeModal('modalConfirm');
+                callback();
+            };
+            openModal('modalConfirm');
+        }
+
+        // --- 5. BINDING & EVENT LISTENERS ---
+        const bindInput = (id, stateKey) => {
+            const el = document.getElementById(id);
+            el.addEventListener('input', (e) => {
+                appState.settings[stateKey] = e.target.value;
+                renderApp();
+                saveState();
+            });
+        };
+
+        bindInput('setKop1', 'kop1');
+        bindInput('setKop2', 'kop2');
+        bindInput('setKop3', 'kop3');
+        bindInput('setKepsek', 'kepsek');
+        bindInput('setTanggal', 'tanggal');
+
+        function updateInputsFromState() {
+            document.getElementById('setKop1').value = appState.settings.kop1;
+            document.getElementById('setKop2').value = appState.settings.kop2;
+            document.getElementById('setKop3').value = appState.settings.kop3;
+            document.getElementById('setKepsek').value = appState.settings.kepsek;
+            document.getElementById('setTanggal').value = appState.settings.tanggal;
+            if(appState.settings.logoUrl) document.getElementById('resetLogo').classList.remove('hidden');
+            if(appState.settings.ttdUrl) document.getElementById('resetTtd').classList.remove('hidden');
+            if(appState.settings.capUrl) document.getElementById('resetCap').classList.remove('hidden');
+        }
+
+        // Import TXT
+        document.getElementById('btnImportText').addEventListener('click', () => {
+            const text = document.getElementById('importText').value;
+            if(!text.trim()) { showAlert('Kosong', 'Masukkan data teks terlebih dahulu!', false); return; }
+            
+            const lines = text.split('\n');
+            let addedCount = 0;
+            lines.forEach(line => {
+                const parts = line.split('\t').map(p => p.trim());
+                if(parts.length >= 2) {
+                    appState.students.push({
+                        id: generateId(),
+                        no: parts[0] || '-', nama: parts[1] || '-', ttl: parts[2] || '-', nisn: parts[3] || '000000', photoUrl: ""
+                    });
+                    addedCount++;
+                }
+            });
+            
+            if(addedCount > 0) {
+                document.getElementById('importText').value = '';
+                showAlert('Berhasil', `${addedCount} Siswa berhasil diimpor.`);
+                saveState(); renderApp();
+            } else {
+                showAlert('Gagal', 'Format data tidak sesuai.', false);
+            }
+        });
+
+        // Tema
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        function renderThemeBtns() {
+            themeBtns.forEach(btn => {
+                if(btn.getAttribute('data-theme') === appState.settings.theme) {
+                    btn.classList.add('ring-4', 'ring-blue-300', 'border-white', 'scale-110', 'z-10');
+                } else {
+                    btn.classList.remove('ring-4', 'ring-blue-300', 'border-white', 'scale-110', 'z-10');
+                }
+            });
+        }
+        themeBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                appState.settings.theme = e.target.getAttribute('data-theme');
+                renderThemeBtns(); renderApp(); saveState();
+            });
+        });
+
+        // File Uploads (Base64)
+        const handleImageUpload = (inputId, stateKey, resetId) => {
+            document.getElementById(inputId).addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    appState.settings[stateKey] = event.target.result;
+                    document.getElementById(resetId).classList.remove('hidden');
+                    renderApp(); saveState();
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+        handleImageUpload('uploadLogo', 'logoUrl', 'resetLogo');
+        handleImageUpload('uploadTtd', 'ttdUrl', 'resetTtd');
+        handleImageUpload('uploadCap', 'capUrl', 'resetCap');
+
+        document.getElementById('resetLogo').addEventListener('click', () => { appState.settings.logoUrl = ""; document.getElementById('uploadLogo').value = ""; document.getElementById('resetLogo').classList.add('hidden'); renderApp(); saveState(); });
+        document.getElementById('resetTtd').addEventListener('click', () => { appState.settings.ttdUrl = ""; document.getElementById('uploadTtd').value = ""; document.getElementById('resetTtd').classList.add('hidden'); renderApp(); saveState(); });
+        document.getElementById('resetCap').addEventListener('click', () => { appState.settings.capUrl = ""; document.getElementById('uploadCap').value = ""; document.getElementById('resetCap').classList.add('hidden'); renderApp(); saveState(); });
+
+        // Excel Upload
+        document.getElementById('uploadExcel').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                
+                let addedCount = 0;
+                rows.forEach((row, index) => {
+                    if (index === 0 && (row[0].toString().toLowerCase().includes('no') || isNaN(parseInt(row[0])) && row[0] !== "")) return; 
+                    if (row.length >= 2 && row.join("").trim() !== "") {
+                        appState.students.push({
+                            id: generateId(),
+                            no: row[0] || "-", nama: row[1] || "-", ttl: row[2] || "-", nisn: row[3] || "000000", photoUrl: ""
+                        });
+                        addedCount++;
+                    }
+                });
+
+                if(addedCount > 0) { showAlert("Berhasil", `${addedCount} Data dari Excel ditambahkan!`); saveState(); renderApp(); } 
+                else { showAlert("Gagal", "Format Excel tidak sesuai/kosong.", false); }
+                document.getElementById('uploadExcel').value = "";
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // --- 6. MANAJEMEN SISWA & RENDER ---
+        document.getElementById('btnHapusSemua').addEventListener('click', () => {
+            if(appState.students.length === 0) return;
+            showConfirm("Kosongkan Data", "Apakah Anda yakin ingin menghapus semua data siswa?", () => {
+                appState.students = []; saveState(); renderApp();
+            });
+        });
+
+        // Form Tambah
+        document.getElementById('btnTambahManual').addEventListener('click', () => {
+            document.getElementById('formNo').value = ""; document.getElementById('formNama').value = ""; document.getElementById('formTtl').value = ""; document.getElementById('formNisn').value = "";
+            openModal('modalFormSiswa');
+        });
+        document.getElementById('btnSaveSiswa').addEventListener('click', () => {
+            const nama = document.getElementById('formNama').value;
+            if(!nama.trim()) { showAlert('Error', 'Nama harus diisi!', false); return; }
+            appState.students.push({
+                id: generateId(),
+                no: document.getElementById('formNo').value || "-",
+                nama: nama,
+                ttl: document.getElementById('formTtl').value || "-",
+                nisn: document.getElementById('formNisn').value || "000000",
+                photoUrl: ""
+            });
+            closeModal('modalFormSiswa'); showAlert('Berhasil', 'Data siswa ditambahkan.'); saveState(); renderApp();
+        });
+
+        // Upload Photo Per Siswa
+        let activeStudentIdForPhoto = null;
+        document.getElementById('uploadPhotoInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file || !activeStudentIdForPhoto) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const idx = appState.students.findIndex(s => s.id === activeStudentIdForPhoto);
+                if(idx > -1) { appState.students[idx].photoUrl = event.target.result; saveState(); renderApp(); }
+                document.getElementById('uploadPhotoInput').value = "";
+            };
+            reader.readAsDataURL(file);
+        });
+
+        window.triggerPhotoUpload = (id) => { activeStudentIdForPhoto = id; document.getElementById('uploadPhotoInput').click(); };
+        window.deleteStudent = (id) => {
+            showConfirm("Hapus Siswa", "Yakin hapus data siswa ini?", () => {
+                appState.students = appState.students.filter(s => s.id !== id); saveState(); renderApp();
+            });
+        };
+        window.deletePhoto = (id) => {
+            const idx = appState.students.findIndex(s => s.id === id);
+            if(idx > -1) { appState.students[idx].photoUrl = ""; saveState(); renderApp(); }
+        }
+
+        // --- 7. CORE RENDERING ENGINE ---
+        function renderApp() {
+            // Render Daftar Siswa Sidebar
+            const listContainer = document.getElementById('studentListContainer');
+            document.getElementById('countSiswa').innerText = appState.students.length;
+            listContainer.innerHTML = '';
+
+            if(appState.students.length === 0) {
+                listContainer.innerHTML = `<div class="text-center text-xs text-gray-400 py-10">Data kosong</div>`;
+            } else {
+                appState.students.forEach(std => {
+                    const hasPhoto = std.photoUrl ? true : false;
+                    const photoBtn = hasPhoto 
+                        ? `<button onclick="deletePhoto('${std.id}')" class="text-[10px] bg-red-100 text-red-600 px-1.5 py-1 rounded hover:bg-red-200">Hapus Foto</button>`
+                        : `<button onclick="triggerPhotoUpload('${std.id}')" class="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-1 rounded hover:bg-blue-200">Set Foto</button>`;
+                    
+                    listContainer.insertAdjacentHTML('beforeend', `
+                        <div class="bg-white border border-gray-200 p-2 rounded-md flex justify-between items-center shadow-sm">
+                            <div class="truncate pr-2">
+                                <p class="text-xs font-bold text-gray-800 truncate">${std.nama}</p>
+                                <p class="text-[9px] text-gray-500">${std.no} | NISN: ${std.nisn}</p>
+                            </div>
+                            <div class="flex gap-1 shrink-0">
+                                ${photoBtn}
+                                <button onclick="deleteStudent('${std.id}')" class="text-red-500 hover:text-red-700 p-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                            </div>
+                        </div>
+                    `);
+                });
+            }
+
+            // Render Kartu (Kanan)
+            const cardContainer = document.getElementById('cardContainer');
+            cardContainer.innerHTML = '';
+            
+            const logoHTML = appState.settings.logoUrl 
+                ? `<img src="${appState.settings.logoUrl}" class="w-[34px] h-[34px] object-contain shrink-0" alt="Logo">`
+                : `<div class="w-[32px] h-[32px] rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm border border-white/40 shrink-0"><svg class="w-4 h-4 header-text-color" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg></div>`;
+            
+            const ttdHTML = appState.settings.ttdUrl
+                ? `<img src="${appState.settings.ttdUrl}" class="signature-img" alt="TTD">`
+                : ``;
+
+            const capHTML = appState.settings.capUrl
+                ? `<img src="${appState.settings.capUrl}" class="stamp-img" alt="Cap">`
+                : ``;
+
+            appState.students.forEach(std => {
+                const photoAreaHTML = std.photoUrl
+                    ? `<img src="${std.photoUrl}" class="w-full h-full object-cover rounded-lg z-10 relative">`
+                    : `<svg class="w-6 h-6 text-gray-400 mb-1 z-10 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg><span class="font-bold text-[7pt] text-gray-500 z-10 relative">2x3</span>`;
+
+                const validNisn = (std.nisn && std.nisn !== '-' && std.nisn !== '') ? std.nisn : '000000';
+
+                const cardHTML = `
+                    <div class="id-card ${appState.settings.theme}">
+                        <div class="card-header-container">
+                            ${logoHTML}
+                            <div class="header-text-color leading-[1.1]">
+                                <h1 class="text-[9.5pt] font-extrabold tracking-wide uppercase">${appState.settings.kop1}</h1>
+                                <h2 class="text-[7.5pt] font-semibold opacity-95">${appState.settings.kop2}</h2>
+                                <h3 class="text-[6.5pt] font-medium opacity-80">${appState.settings.kop3}</h3>
+                            </div>
+                        </div>
+                        
+                        <div class="card-body-container">
+                            <!-- KIRI -->
+                            <div class="left-content">
+                                <div class="data-list">
+                                    <div class="data-item"><span class="data-label">No. Peserta</span><span class="data-value tracking-wide">${std.no}</span></div>
+                                    <div class="data-item"><span class="data-label">Nama Lengkap</span><span class="data-value truncate">${std.nama}</span></div>
+                                    <div class="data-item"><span class="data-label">Tempat, Tgl Lahir</span><span class="data-value">${std.ttl}</span></div>
+                                    <div class="data-item"><span class="data-label">NISN</span><span class="data-value tracking-wide">${validNisn}</span></div>
+                                </div>
+                                <div class="barcode-area">
+                                    <svg class="barcode" jsbarcode-value="${validNisn}" jsbarcode-format="CODE128" jsbarcode-width="1.2" jsbarcode-height="22" jsbarcode-displayvalue="false" jsbarcode-margin="0" jsbarcode-background="transparent" jsbarcode-linecolor="#111827"></svg>
+                                    <span class="barcode-text">SN: ${validNisn}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- KANAN -->
+                            <div class="right-content">
+                                <div class="photo-area w-[2cm] h-[2.8cm] border-2 border-dashed border-gray-400/60 bg-white/40 backdrop-blur-sm rounded-lg flex flex-col items-center justify-center shrink-0 shadow-sm relative overflow-hidden">
+                                    ${photoAreaHTML}
+                                </div>
+                                <div class="signature-area">
+                                    ${capHTML}
+                                    <p class="signature-date">${appState.settings.tanggal}</p>
+                                    <p class="signature-text">Kepala Sekolah,</p>
+                                    <div class="signature-space">${ttdHTML}</div>
+                                    <p class="signature-text signature-name">${appState.settings.kepsek}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                cardContainer.insertAdjacentHTML('beforeend', cardHTML);
+            });
+
+            try { JsBarcode(".barcode").init(); } catch (e) {}
+        }
+
+        // Init
+        loadState();
+
+    </script>
+</body>
+</html>
